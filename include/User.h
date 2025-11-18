@@ -1,22 +1,18 @@
 #pragma once
 #include <string>
 
-class User
-{
+class User {
 public:
-    // Constructor
-    User(std::string username, std::string password);
-
-    // Methods
-    bool login(std::string inputPassword);
-    std::string getUsername();
+    // Constructor: Creates a user object to store data
+    User(std::string clientID, std::string publicKeyHex);
+    
+    // Persist the user to clients.txt
     void saveToDatabase();
-    static bool verifyCredentials(std::string username, std::string password);
+
+    // STATIC function to verify signatures without creating a User object
+    static bool verifySignature(std::string clientID, std::string message, std::string signatureHex);
 
 private:
-    std::string username;
-    std::string password;
-    
-    // Helper function to scramble/unscramble strings
-    static std::string hashPassword(std::string rawPassword);
+    std::string clientID;
+    std::string publicKeyHex;
 };

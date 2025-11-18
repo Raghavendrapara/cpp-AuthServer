@@ -3,73 +3,77 @@
 #include <iostream>
 
 // Crypto++ Headers
-#include <cryptopp/sha.h>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/oids.h>
 #include <cryptopp/hex.h>
+#include <cryptopp/sha.h>
 #include <cryptopp/filters.h>
+#include <cryptopp/osrng.h>
 
 using namespace std;
 using namespace CryptoPP;
 
 // Constructor
-User::User(string username, string password) {
-    this->username = username;
-    this->password = password;
+User::User(string clientID, string publicKeyHex) {
+    this->clientID = clientID;
+    this->publicKeyHex = publicKeyHex;
 }
 
-// --- THE SHARED LOGIC ---
-string User::hashPassword(string rawPassword) {
-    SHA256 hash;
-    string digest;
-
-    StringSource s(rawPassword, true, 
-        new HashFilter(hash,
-            new HexEncoder(
-                new StringSink(digest)
-            )
-        )
-    );
-    return digest;
-}
-
-// Register
+// Save Client ID and Public Key to file
 void User::saveToDatabase() {
-    ofstream file("database.txt", ios::app);
+    ofstream file("clients.txt", ios::app);
     if (file.is_open()) {
-        // 1. Hash it
-        string encryptedPass = hashPassword(this->password);
-        // 2. Save it
-        file << this->username << " " << encryptedPass << endl;
+        file << this->clientID << " " << this->publicKeyHex << endl;
         file.close();
-        cout << "[DEBUG] User registered. Saved Hash: " << encryptedPass.substr(0, 10) << "..." << endl;
+        cout << "[DB] User " << this->clientID << " saved to database." << endl;
+    } else {
+        cerr << "[ERROR] Could not open clients.txt for writing." << endl;
     }
 }
 
-// Login
-bool User::verifyCredentials(string username, string inputPassword) {
-    ifstream file("database.txt");
-    string dbUser, dbPass;
+// Verify ECDSA Signature
+bool User::verifySignature(string clientID, string message, string signatureHex) {
+    ifstream file("clients.txt");
+    string dbID, dbPubKey;
+    bool found = false;
 
-    if (!file.is_open()) return false;
-
-    // 1. Hash the input immediately
-    string hashedInput = hashPassword(inputPassword);
-
-    cout << "\n--- DEBUGGING LOGIN ---" << endl;
-    cout << "Attempting to match User: " << username << endl;
-    cout << "Hash of Input Password:   " << hashedInput.substr(0, 10) << "..." << endl;
-
-    while (file >> dbUser >> dbPass) {
-        if (dbUser == username) {
-            // Found the user, now checking password
-            cout << "Found User in File!" << endl;
-            cout << "Hash stored in File:    " << dbPass.substr(0, 10) << "..." << endl;
-            
-            if (dbPass == hashedInput) {
-                return true;
-            } else {
-                cout << "MISMATCH! Hashes do not match." << endl;
-            }
+    // 1. Find the Public Key for the given Client ID
+    while (file >> dbID >> dbPubKey) {
+        if (dbID == clientID) {
+            found = true;
+            break;
         }
     }
-    return false;
+
+    if (!found) { 
+        cout << "[AUTH FAIL] Client ID '" << clientID << "' not found." << endl;
+        return false; 
+    }
+
+   // ... inside src/User.cpp ...
+
+    try {
+        string binaryKey, binarySignature;
+        StringSource(dbPubKey, true, new HexDecoder(new StringSink(binaryKey)));
+        StringSource(signatureHex, true, new HexDecoder(new StringSink(binarySignature)));
+
+        ECDSA<ECP, SHA256>::PublicKey publicKey;
+        publicKey.Load(StringSource(binaryKey, true).Ref());
+
+        ECDSA<ECP, SHA256>::Verifier verifier(publicKey);
+
+        // FIX: Use 'CryptoPP::byte' explicitly in the casts below
+        bool result = verifier.VerifyMessage(
+            (const CryptoPP::byte*)message.data(), 
+            message.size(), 
+            (const CryptoPP::byte*)binarySignature.data(), 
+            binarySignature.size()
+        );
+
+        return result;
+
+    } catch (const Exception& e) {
+        cerr << "[CRYPTO ERROR] " << e.what() << endl;
+        return false;
+    }
 }

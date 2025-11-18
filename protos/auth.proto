@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package auth;
+
+// The Service Definition
+service AuthService {
+  // RPC Method 1: Register a new client
+  rpc Register (RegisterRequest) returns (RegisterResponse) {}
+
+  // RPC Method 2: Verify a signature (Login)
+  rpc Authenticate (AuthRequest) returns (AuthResponse) {}
+}
+
+// --- DATA STRUCTURES ---
+
+message RegisterRequest {
+  string client_id = 1;
+  string public_key_hex = 2;
+}
+
+message RegisterResponse {
+  string message = 1;
+  bool success = 2;
+}
+
+message AuthRequest {
+  string client_id = 1;
+  string timestamp_message = 2;
+  string signature_hex = 3;
+}
+
+message AuthResponse {
+  bool authorized = 1; // True = PASS, False = FAIL
+  string message = 2;
+}
