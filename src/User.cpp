@@ -14,25 +14,34 @@ using namespace std;
 using namespace CryptoPP;
 
 // Constructor
-User::User(string clientID, string publicKeyHex) {
+User::User(const string& clientID, const string& publicKeyHex) {
     this->clientID = clientID;
     this->publicKeyHex = publicKeyHex;
 }
 
-// Save Client ID and Public Key to file
-void User::saveToDatabase() {
+void User::saveToDatabase() const{
+    // 1. Check if user already exists
+    ifstream readFile("clients.txt");
+    string dbID, dbKey;
+    while (readFile >> dbID >> dbKey) {
+        if (dbID == this->clientID) {
+            cout << "[DB] User " << this->clientID << " already exists. Keeping original key." << endl;
+            return; // EXIT: Do not save the new (mismatched) key
+        }
+    }
+    readFile.close();
+
+    // 2. Only if not found, append the new user
     ofstream file("clients.txt", ios::app);
     if (file.is_open()) {
         file << this->clientID << " " << this->publicKeyHex << endl;
         file.close();
-        cout << "[DB] User " << this->clientID << " saved to database." << endl;
-    } else {
-        cerr << "[ERROR] Could not open clients.txt for writing." << endl;
+        cout << "[DB] New User " << this->clientID << " registered." << endl;
     }
 }
 
 // Verify ECDSA Signature
-bool User::verifySignature(string clientID, string message, string signatureHex) {
+bool User::verifySignature(const string& clientID,const string& message,const string& signatureHex) {
     ifstream file("clients.txt");
     string dbID, dbPubKey;
     bool found = false;
@@ -50,8 +59,6 @@ bool User::verifySignature(string clientID, string message, string signatureHex)
         return false; 
     }
 
-   // ... inside src/User.cpp ...
-
     try {
         string binaryKey, binarySignature;
         StringSource(dbPubKey, true, new HexDecoder(new StringSink(binaryKey)));
@@ -62,11 +69,10 @@ bool User::verifySignature(string clientID, string message, string signatureHex)
 
         ECDSA<ECP, SHA256>::Verifier verifier(publicKey);
 
-        // FIX: Use 'CryptoPP::byte' explicitly in the casts below
         bool result = verifier.VerifyMessage(
-            (const CryptoPP::byte*)message.data(), 
+            reinterpret_cast<const CryptoPP::byte*>(message.data()),
             message.size(), 
-            (const CryptoPP::byte*)binarySignature.data(), 
+            reinterpret_cast<const CryptoPP::byte*>(binarySignature.data()),
             binarySignature.size()
         );
 

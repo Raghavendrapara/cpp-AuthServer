@@ -30,7 +30,8 @@ public:
         privateKey_.MakePublicKey(publicKey_);
     }
 
-    void Register(const string& clientID) {
+    void Register(const string& clientID) const
+    {
         RegisterRequest request;
         request.set_client_id(clientID);
         
@@ -46,7 +47,8 @@ public:
         else cout << "Register Failed." << endl;
     }
 
-    void Login(const string& clientID) {
+    void Login(const string& clientID) const
+    {
         AuthRequest request;
         request.set_client_id(clientID);
         string message = "TIMESTAMP_2025"; 
@@ -75,7 +77,7 @@ private:
 
 int main() {
     AuthClient client(grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
-    client.Register("TraderBot_02");
-    client.Login("TraderBot_02");
+    client.Register("TraderBot_03");
+    client.Login("TraderBot_03");
     return 0;
 }
