@@ -75,7 +75,7 @@ private:
 
 int main() {
     AuthClient client(grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
-    client.Register("TraderBot_01");
-    client.Login("TraderBot_01");
+    client.Register("TraderBot_02");
+    client.Login("TraderBot_02");
     return 0;
 }
